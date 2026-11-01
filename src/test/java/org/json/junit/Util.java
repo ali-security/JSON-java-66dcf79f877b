@@ -117,4 +117,34 @@ public class Util {
             );
         }
     }
+
+    /**
+     * Runs the given code on a dedicated thread with a large (8MB) stack and
+     * returns whatever it threw. Lets tests feed very deeply nested documents
+     * to the parsers and tell a controlled JSONException apart from a
+     * StackOverflowError, independently of the stack size of the test runner.
+     * @param runnable the code to run
+     * @return the Throwable thrown by the code, or null if it completed normally
+     */
+    public static Throwable throwableFromLargeStack(final Runnable runnable) {
+        final Throwable[] thrown = new Throwable[1];
+        Thread thread = new Thread(null, new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    runnable.run();
+                } catch (Throwable t) {
+                    thrown[0] = t;
+                }
+            }
+        }, "large-stack", 8L * 1024 * 1024);
+        thread.start();
+        try {
+            thread.join();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Interrupted while waiting for the large-stack thread", e);
+        }
+        return thrown[0];
+    }
 }
